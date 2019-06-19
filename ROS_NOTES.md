@@ -5,32 +5,35 @@
   * [Nodes](#nodes)
   * [Topics and Messages](#topicsmessages)
 - [Writing ROS Program](#writeros)
-  * [Create Workspace and Package](#createwspck)
-  * [Hello World Program](#helloworld)
-  * [Compile the Program](#compile)
+  * [Hello World Program](#hello)
+    + [Create Workspace and Package](#createwspck)
+    + [Write Hello World Program](#writehelloworld)
+    + [Compile Hello World Program](#compilehelloworld)
   * [Publisher Program](#pubpro)
+    + [Write pubvel Program](#writepubvel)
+    + [Compile pubvel Program](#compilepubevl)
 # ROS Basics <a name="rosbasics"/>
 
 ## Packages <a name="packages"></a>
-* rospack list
-* rospack find package-name
-* rosls package-name
-* roscd package-name
+* ```rospack list```
+* ```rospack find package-name```
+* ```rosls package-name```
+* ```roscd package-name```
 
 Each package is defined by a manifest, which is a file called package.xml. This file defines some details about the package, including its name, version, maintainer, and dependencies. The directory containing package.xml is called the package directory. (In fact, this is the definition of a ROS package: Any directory that ROS can find that contains a file named package.xml is a package directory.) This directory stores most of the pack- age’s files.
 
 ## Master <a name="master"></a>
-* roscore
+* ```roscore```
 
 ROS master allows nodes to communicate with one another
 
 
 ## Nodes <a name="nodes"></a>
-* rosrun package-name executable-name
-* rosrun package-name executable-name \_\_name:=node-name
-* rosnode list
-* rosnode info node-name (output a list of topics, for which taht node is a publisher or subscriber, the services offered by that node, the Linux process identifier (PID) and a summary of the connections it has made to other nodes)
-* rosnode kill node-name
+* ```rosrun package-name executable-name```
+* ```rosrun package-name executable-name __name:=node-name```
+* ```rosnode list```
+* ```rosnode info node-name``` (output a list of topics, for which taht node is a publisher or subscriber, the services offered by that node, the Linux process identifier (PID) and a summary of the connections it has made to other nodes)
+* ```rosnode kill node-name```
 
 A **running instance** of a ROS program is called a node (if we execute multiple copies of the same program at the same time, ensuring that each uses a different node name, each of the copies is treated as a separate node)
 
@@ -39,16 +42,16 @@ A **running instance** of a ROS program is called a node (if we execute multiple
 ## Topcis and Messages <a name="topicsmessages"></a>
 
 * Topic Related
-  * rqt_graph (visulize the publish-subscribe relationships between ROS nodes)
-  * rostopic list
-  * rostopic echo topic-name
-  * rostopic hz topic-name
-  * rostopic bw topic-name
-  * rostpoic info topic-name
+  * ```rqt_graph``` (visulize the publish-subscribe relationships between ROS nodes)
+  * ```rostopic list```
+  * ```rostopic echo topic-name```
+  * ```rostopic hz topic-name```
+  * ```rostopic bw topic-name```
+  * ```rostpoic info topic-name```
 
 * Message Related
-  * rosmsg show message-type-name (see details about a message type)
-  * rostopic pub -r rate-in-hz topic-name message-type message-content (publish messages from command line)
+  * ```rosmsg show message-type-name``` (see details about a message type)
+  * ```rostopic pub -r rate-in-hz topic-name message-type message-content``` (publish messages from command line)
 
 Every message type belongs to a specific package. The format will be package-name/type-name  
 
@@ -61,7 +64,9 @@ The ROS master takes care of ensuring that publishers and subscribers can find e
 
 # Writing ROS Program <a name="writeros"></a>
 
-## Create Workspace and Package <a name="createwspck"></a>
+## Write Hello World Program <a name="hello"></a>
+
+### Create Workspace and Package <a name="createwspck"></a>
 
 **Creating a workspace**: Packages should live together in a directory called a **workspace**.
 
@@ -75,7 +80,7 @@ It will create a directory to hold the packages and two configurations files ins
 * **package.xml**: manifest file
 * **CMakeLists.txt**: a script for an industrial-strength cross-platform build system called CMake. It contains a list of build instructions including what executables should be created, what source files to use to build each of them, and where to find the include files and libraries needed for those executables. CMake is used internally by catkin.
 
-## Hello World program <a name="helloworld"></a>
+### Write Hello World program <a name="writehelloworld"></a>
 
 package.xml
 
@@ -118,7 +123,7 @@ int main(int argc, char **argv){
 ```
 
 
-## Compile the Program <a name = "compile"></a>
+### Compile the Program <a name = "compilehelloworld"></a>
 * Declare dependencies
 
 ```txt
@@ -202,8 +207,39 @@ rosrun demo hello
 
 ## Publisher Program <a name="pubpro"></a>
 
+### Write pubvel <a name="writepubvel"></a>
 * Include the message type declaration
+
+```#include <package_name/type_name.h>```
+
 * Create a publisher object
+
+```ros::Publisher pub = node_handel.advertise<message_type>(topic_name, queue_size)```
+
+The topic_name is a string containing the name of the topic on which we want to publish. It should match the topic names shown by rostopic list or rqt_graph, but (usually) without the leading slash (/). We drop the leading slash to make the topic name a relative name
+
+If the program rapidly publishes more messages than the queue can hold, the oldest unsent messages will be discarded.
+
+
+message queue is needed because, in most cases, the message must be trans- mitted to another node. This communication process can be time consuming, especially compared to the time needed to create messages. ROS mitigates this delay by having the publish method store the message in an “outbox” queue and return right away. A separate thread behind the scenes actually transmits the message. The integer value given here is the number of messages—and not the number of bytes—that the message queue can hold.
+
+The ROS client library is smart enough to know when the publisher and subscriber nodes are part of the same underlying process. In these cases, the message is delivered directly to the subscriber, without using any network transport. This feature is very important for making nodelets􏰃— that is, multiple nodes that can be dynamically loaded into a single process— efficient.
+
+
+
+* create and fill the message object
+
+* publish the message
+
+* control the publishing rate
+
+```ros:Rate rate(hz_rate)``` controls how rapidly the loop runs. The parameter in the constructor is in units of Hz (cycles per second). Near the end of each loop iteration, ```rate.sleep()``` is called to cause a delay in the program. The duration of the delay is calculated to prevent the loop from iterating faster than the specified rate. Without this kind of control, the program would publish messages as fast as the computer allows, which can overwhelm publish and subscribe queues and waste computation and network resources.
+
+In extreme cases, in which the real work of the loop takes longer than the requested rate, the delay induced by ```rate.sleep()```  can be reduced to zero.
+
+We can confirm this regulation is working correctly using ```rostopic hz```
+
+pubvel.cpp
 ```c++
 // every ROS topic is associated with a message type.
 // Each message type has a corresponding C++ header file.
@@ -223,6 +259,7 @@ int main(int argc, char **argv){
     // Loop at 2Hz until the node is shut down
     ros::Rate rate(2);
 
+    // Check for node shutdown
     while(ros::ok()) {
         geometry_msgs::Twist msg;
 	      msg.linear.x = double(rand())/double(RAND_MAX);
@@ -239,3 +276,15 @@ int main(int argc, char **argv){
     }
 }
 ```
+
+```txt
+Be mindful of the lifetime of the ros::Publisher objects. Creating the publisher is an expensive operation, so it’s a usually bad idea to create a new ros::Publisher object each time you want to publish a message. Instead, create one publisher for each topic, and use that publisher throughout the execution of your program. In pubvel, we accomplish this by declaring the publisher outside of the while loop.
+
+```
+
+
+Ways to make ```ros::ok()``` return false:
+* use ```rosnode kill ```on the node
+* send an interrupt signal (Ctrl-C) to the program
+* call ```ros::shutdown()``` somewhere in the program
+* start another node with the same name
