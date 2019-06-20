@@ -12,6 +12,16 @@
   * [Publisher Program](#pubpro)
     + [Write pubvel Program](#writepubvel)
     + [Compile pubvel Program](#compilepubevl)
+    + [Execute pubvel Program](executepubevl)
+  * [Subscriber Program](#subpro)
+    + [Write subpose Program](#writesubpose)
+- [Log Messages](#logmessage)
+  * [Severity Levels](#slevel)
+  * [Generate Log Messages](#genlog)
+    + [Normal Log](#normallog)
+    + [One-time Log](#onetimelog)
+    + [Throttled Log](throttedlog)
+  * [View Log Messages](#viewlog)
 # ROS Basics <a name="rosbasics"/>
 
 ## Packages <a name="packages"></a>
@@ -277,10 +287,10 @@ int main(int argc, char **argv){
 }
 ```
 
-```txt
+
 Be mindful of the lifetime of the ros::Publisher objects. Creating the publisher is an expensive operation, so it’s a usually bad idea to create a new ros::Publisher object each time you want to publish a message. Instead, create one publisher for each topic, and use that publisher throughout the execution of your program. In pubvel, we accomplish this by declaring the publisher outside of the while loop.
 
-```
+
 
 
 Ways to make ```ros::ok()``` return false:
@@ -288,3 +298,202 @@ Ways to make ```ros::ok()``` return false:
 * send an interrupt signal (Ctrl-C) to the program
 * call ```ros::shutdown()``` somewhere in the program
 * start another node with the same name
+
+
+### Compile pubvel Program <a name="compilepubevl"></a>
+* Declare Message Type Dependencies
+
+Because ```pubvel.cpp``` uses a message type from the ```geometry_msgs``` package, we must declare a dependency on that package. So we need to modify the find_package line in ```CMakeLists.txt``` to mention ```geometry_msgs``` in addition to ```roscpp```:
+
+```find_package(catkin REQUIRED COMPONENTS roscpp geometry_msgs)```
+
+In ```package.xml```, we need to add elements for the new dependency:
+```xml
+<build_depend>geometry_msgs</build_depend>
+<run_depend>geometry_msgs</run_depend>
+```
+
+### Execute pubvel Program <a name="executepubevl"></a>
+```bash
+rosrun demo pubvel
+```
+
+```bash
+rosrun turtlesim turtlesim_node
+```
+
+
+## Publisher Program <a name="pubpro"></a>
+### Write subpose Program <a name="writesubpose"></a>
+* Write callback Function
+
+One important difference between publishing and subscribing is that a subscriber node doesn’t know when messages will arrive. To deal with this fact, we must place any code that responds to incoming messages inside a callback function, which ROS calls once for each arriving message. A subscriber callback function looks like this:
+
+```cpp
+void function_name(const package_name::type_name &msg){
+  ...
+}
+```
+The callback function is executed each time a message arrives
+
+* Create subscriber Object
+
+```cpp
+ros::Subscriber sub = node_handle.subscribe(topic_name, queue_size, pointer_to_callback_fuction);
+```
+When new messages arrive, they are stored in a queue until ROS gets a chance to execute the callback function. ```queue_size``` establishes a maximum number of messages that ROS will store in that queue at one time.
+
+If new messages arrive when the queue is full, the oldest unprocessed messages will be dropped to make room. This may seem, on the surface, to be very similar to the technique used for publishing messages, but differs in an important way: The rate at which ROS can empty a publishing queue depends on the time taken to actually transmit the messages to subscribers, and is largely out of our control. In contrast, the speed with which ROS empties a subscribing queue depends on how quickly we process callbacks. Thus, we can reduce the likelihood of a subscriber queue overflowing by
+
+(a) ensuring that we allow callbacks to occur, via ```ros::spin``` or ```ros::spinOnce```, frequently
+(b) reducing the amount of time consumed by each callback.
+
+
+The ```pointer_to_callback_fuction``` parameter is a pointer to the callback function that ROS should execute when messages arrive. In C++, we can get a pointer to a function using the ampersand (&, “address-of”) operator on the function name. (The ampersand is actually optional, and many programs omit it. The compiler can tell that we want a pointer to the function, rather than the value returned from executing the function, because the function name is not followed by parentheses.)
+
+
+While creating a ```ros::Subscriber``` object, we do not explicitly mention the message type anywhere. In fact, the subscribe method is templated, and the C++ compiler infers the correct message type based on the data type of the callback function pointer we provide.
+
+* Give ROS Control
+ROS will only execute our callback function when we give it explicit permission to do so. There are two ways to do this:
+
+```cpp
+ros::spinOnce();
+```
+It asks ROS to execute all the pending callbacks from all the node's subscriptions, and then return control back to us.
+
+and
+
+```cpp
+ros::spin();
+```
+It asks ROS to wait for and execute callbacks until the node shuts down
+
+This is roughly equivalent to
+
+```cpp
+while(ros::ok()){
+  ros::spinOnce();
+}
+```
+
+
+
+```cpp
+#include <ros/ros.h>
+#include <turtlesim/Pose.h>
+#include <iomanip>
+
+// The callback function is executed each time
+// a new pose message arrives
+void poseMessageReceived(const turtlesim::Pose &msg) {
+    ROS_INFO_STREAM(std::setprecision(2) << std::fixed << "position=(" << msg.x << "," << msg.y << ")" << " direction=" << msg.theta);
+}
+
+int main(int argc, char **argv){
+    // Initialize the ROS system and become a node.
+    ros::init(argc, argv, "subscribe_to_pose");
+    ros::NodeHandle nh;
+
+    // Create a subscriber object
+    ros::Subscriber sub = nh.subscribe("turtle1/pose", 1000, &poseMessageReceived);
+
+    // Let ROS take over
+    ros::spin();
+}
+```
+
+
+# Log Messages <a name="logmessage"></a>
+
+## Severity Levels <a name="slevel"></a>
+* DEBUG
+* INFO
+* WARN
+* ERROR
+* FATAL
+
+## Generate Log Messages <a name="genlog"></a>
+
+
+```c++
+#include <ros/ros.h>
+int main(int argc, char **argv){
+    ros::init(argc, argv, "count_and_log");
+    ros::NodeHandle nh;
+    ros::Rate rate(10);
+
+    for (int i = 1; ros::ok(); i++){
+        ROS_DEBUG_STREAM("Counted to : " << i);
+	if (i % 3 == 0){
+            ROS_INFO_STREAM(i << " is divisible by 3");
+	}		
+	if (i % 5 == 0){
+	    ROS_WARN_STREAM(i << " is divisible by 5");
+	}
+	if (i % 10 == 0){
+            ROS_ERROR_STREAM(i << " is divisible by 10");
+	}		
+	if (i % 20 == 0){
+	    ROS_FATAL_STREAM(i << " is divisible by 20");
+	}
+	rate.sleep();
+    }	    
+}
+```
+
+There’s no need to use std::endl nor any other line terminator, because the logging system is already line-oriented.
+
+
+To generate one-time log messages: <a name="onetimelog"></a>
+```C++
+ROS_DEBUG_STREAM_ONCE(message);
+ROS_INFO_STREAM_ONCE(message);
+ROS_WARN_STREAM_ONCE(message);
+ROS_ERROR_STREAM_ONCE(message);
+ROS_FATAL_STREAM_ONCE(message);
+```
+
+The first time these macros are encountered during a program’s execution, they generate the same log messages as the corresponding non-ONCE versions. After that first execution, these statements have no effect.
+
+
+
+
+There are macros for throttling the rate at which a given log message appears.
+To generate throttled log messages: <a name="throttedlog"></a>
+```c++
+ROS_DEBUG_STREAM_THROTTLE(interval, message);
+ROS_INFO_STREAM_THROTTLE(interval, message);
+ROS_WARN_STREAM_THROTTLE(interval, message);
+ROS_ERROR_STREAM_THROTTLE(interval, message);
+ROS_FATAL_STREAM_THROTTLE(interval, message);
+```
+The ```interval``` parameter is a double that specifies the minimum amount of time, mea- sured in seconds, that must pass between successive instances of the given log message.
+
+
+## View Log Messages <a name="viewlog"></a>
+
+There are three destinations for log messages.
+
+* Console
+
+```DEBUG```  and ```INFO``` are sent to standard output
+
+```WARN```, ```ERROR``` AND ```FATAL``` messages are sent to standard error
+
+We can format the console messages by setting ```ROSCONSOLE_FORMAT``` environment variable.
+
+* rosout
+Every log message is also published on the topic ```/rosout``` and the message type of this topic is ```rosgraph_msgs/Log```
+
+we can use
+```bash
+rostopic echo /rosout
+```
+or
+
+```bash
+rqt_console
+```
+
+* Log Files
