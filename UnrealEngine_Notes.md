@@ -72,7 +72,6 @@ Create a new empty level
   * Set Transform -> Location to 0, 0, 0
   * Set Brush Settings -> X, Y, Z to 2700, 5000, 10
 
-(Change ```Perspetive``` to ```Top```)
 
 * Create Ground2
   * Content Browser -> Materials -> M_Ground_Grass
@@ -80,6 +79,9 @@ Create a new empty level
   * Set Transform -> Location to 0, 8750, 0
   * Set Brush Settings -> X, Y, Z to 2700, 10000, 10
 
+Change ```Perspetive``` to ```Top``` and two grounds are aligned like this:
+
+<img src="img/unreal/top_2_grounds.png" width="334" height="822" />
 
 * Create Player Start
   * Basic -> Player Start
@@ -90,7 +92,7 @@ Create a new empty level
 * Create LeftWall
   * Content Browser -> Materials -> M_Brick_Cut_Stone
   * Geometry -> Box
-  * Set Transform -> Location to 1312.5, 625, 205
+  * Set Transform -> Location to 1312.5, 5625, 205
   * Set Brush Settings -> X, Y, Z to 75, 16250, 400
 
 
@@ -165,4 +167,51 @@ Create a new empty level
 
 * Arrange the 2 Groups
   * Top Perspective
-  * 
+  * Zoom until the scale is 1 m
+  * Make sure the distance between the 2 groups is 5 meters
+
+
+* Create Wall of Fire
+  * Particles -> P_Fire
+  * Transform -> Scale: 4.0
+  * Put the fire between the two platforms
+  * Copy (Red) to form a wall
+
+
+* Create House
+  * HouseFenceWall1_1
+    * Materials -> M_Brick_Cut_Stone
+    * Box
+    * Location: -825, 9100, 205
+    * Size: 900, 50, 400
+  * HouseFenceWall2_1
+    * Location: -400, 9775, 205
+    * Size: 50, 1300, 400  
+  * HouseFenceWall3_1
+    * Location: -700, 10400, 205
+    * Size: 550, 50, 400  
+  * House1
+    * Materials -> M_Basic_Wall
+    * Box
+    * Location: -850, 9750, 250
+    * Size: 500, 500, 500    
+    * Wall Thickness: 10
+    * Brush Setting -> Set Hollow to True
+  * Doorway1 for House1
+    * Box -> Set to Subtract
+    * Location: -850, 500, 1550
+    * Size: 200, 10, 300
+  * Interior Design  
+    * Apply M_Wood_Floor_Walnut_Polished to the floor
+    * Props -> SM_Chair -> Chair1
+    * Props -> SM_Table -> Table1
+    * Props -> SM_Lamp_Ceiling
+    * Lights -> Point Light -> LampLight1
+      * Place under lamp
+      * Set mobility to static
+      * Set attenuation to 500 (so the sphere is slightly larger than the house)
+
+* Copy House
+  * Group the first house together
+  * Switch to top Perspective
+  * Make 3 copies of the house so there are 4 in total
