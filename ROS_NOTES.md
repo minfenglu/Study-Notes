@@ -560,3 +560,24 @@ ros::console::notifyLoggerLevelsChanged();
 ```
 
 # Graph Resource Name <a name="grname"></a>
+
+Nodes, topics, services, and parameters are collectively referred to as ```graph resources```.Every graph resource is identified by a short string called a graph resource name.
+
+## Global Names
+Global names have clear, unambiguous meanings and need no additional context information.
+
+There are several parts to a global name:
+* A leading ```/``` to identify the name as global name.
+
+* A sequence of zero or more namespaces, separated by slashed.
+
+* A base name that describes the resource itself.  
+
+## Relative names
+A relative name allows ROS to supply a default namespace. It cannot be matched to specific graph resources unless we know the default namespace the ROS is using to resolve the relative name
+
+The default namespace is tracked individually for each node rather than a system-wide setting.  If the default namespace is not set, ROS will use the global namespace ```/```.
+
+The best and most common way to choose a default namespace for a node is to use ```ns``` attributes in a launch file. However, there are some other ways to do it manually
+
+* Most ROS programs that call ```ros::init``` accept a command line parameter ```__ns```, which specifies a default namespace for that program
