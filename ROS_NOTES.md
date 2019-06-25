@@ -24,6 +24,11 @@
   * [View Log Messages](#viewlog)
   * [Enable and Disable Log Messages](#enabledisablelog")
 - [Graph Resource Name](#grname)
+  * [Global Names](#globalname)
+  * [Relative Names](#relativename)
+  * [Private Names](#privatename)
+  * [Anonymous Names](#anonymousname)
+- [Launch Files](#launchfile)
 
 # ROS Basics <a name="rosbasics"/>
 
@@ -563,7 +568,7 @@ ros::console::notifyLoggerLevelsChanged();
 
 Nodes, topics, services, and parameters are collectively referred to as ```graph resources```.Every graph resource is identified by a short string called a graph resource name.
 
-## Global Names
+## Global Names <a name="globalname"></a>
 Global names have clear, unambiguous meanings and need no additional context information.
 
 There are several parts to a global name:
@@ -573,7 +578,7 @@ There are several parts to a global name:
 
 * A base name that describes the resource itself.  
 
-## Relative names
+## Relative names <a name="relativename"></a>
 A relative name allows ROS to supply a default namespace. It cannot be matched to specific graph resources unless we know the default namespace the ROS is using to resolve the relative name
 
 The default namespace is tracked individually for each node rather than a system-wide setting.  If the default namespace is not set, ROS will use the global namespace ```/```.
@@ -581,3 +586,344 @@ The default namespace is tracked individually for each node rather than a system
 The best and most common way to choose a default namespace for a node is to use ```ns``` attributes in a launch file. However, there are some other ways to do it manually
 
 * Most ROS programs that call ```ros::init``` accept a command line parameter ```__ns```, which specifies a default namespace for that program
+
+* We can also set the default namespace for every ROS program executed within a shell, using an environment variable
+
+```bash
+export ROS_NAMESPACE=default-namespace
+```
+
+
+The real value of relative names is that they make it easier to build complicated systems by composing smaller parts.
+
+When a node uses relative names, it is essentially giving its users the ability to easily push that node and the topics it uses down into a namespace that the node’s original designers did not necessarily anticipate.
+
+This kind of flexibility can make the organization of a system more clear and, more importantly, can prevent name collisions when groups of nodes from different sources are combined.
+
+## Private Names <a name="privatename"></a>
+
+Each node has its own namespace for things that are related only to that node, and are not interesting to anyone else. Private names are often used for parameters. ```roslaunch``` has a specific feature for setting parameters that are accessible by private names.
+
+Private names begin with a tilde (~) and don't fully specify the namespace in which they live.
+
+Instead of using the current default namespace, private names use the name of their node as a namespace.
+
+
+For instance, in a node whose global name is ```/sim1/pubvel```, the private name ```~max_vel``` would be converted to global name ```/sim1/pubvel/max_vel```
+
+
+## Anonymous Names <a name="anonymousname"></a>
+Anonymous names make it easier to obey the rule that each node must have a unique name. During its coll to ```ros::init```, a node can request that a unique name be assigned automatically.
+
+To request an anonymous name, a node should pass ```ros:::init_options::AnonymoustName``` as a fourth paramter to ```ros::init```. The effect of this extra option is to append some extra text to the given base name, ensuring that the node’s name is unique. ```ros::init``` uses the current wall clock time to form anonymous names.
+
+
+
+```c++
+ros;:init(argc, argc, base_name, ros::init_options::AnonymoustName)
+```
+
+
+
+```c++
+// This program allows multiple copies to execute at the same time
+// without needing to manually create distinct names
+// for each of them
+#include <ros/ros.h>
+
+int main(int argc, char **argv){
+  ros::init(argc, argv, "anon", ros::init_options::AnonymoustName);
+  ros::NodeHandle nh;
+  ros::Rate rate(1);
+  while(ros::ok()){
+    ROS_INFO_STREAM("This message is from " << ros::this_node::getName());
+    rate.sleep();
+  }
+}
+```
+
+# Launch Files <a name="launchfile"></a>
+
+ROS provides a mechanism for starting the master and many nodes all at once using a launch file. The basic idea is to list a group of nodes that should be started at the same time in a specific XML format.
+
+## Use Launch Files <a name="uselaunch"></a>
+* execute launch files
+```bash
+roslaunch package-name launch-file-name
+```
+
+example.launch
+
+```XML
+<launch>
+  <node
+     pkg="turtlesim"
+     type="turtlesim_node"
+     name="turtlesim "
+     respawn="true"
+  />
+  <node
+     pkg="turtlesim"
+     type="turtle_teleop_key"
+     name="teleop_key "
+     required="true"
+     launch−prefix="xterm −e"
+  />
+  <node
+     pkg="demo"
+     type="subpose"
+     name="pose_subscriber"
+     output="screen"
+  />
+</launch>
+```
+
+We can invoke the example launch file using this command:
+```bash
+roslaunch demo example.launch
+```
+
+It is also possible to use launch files that are not part of any package. To do this, give roslaunch only the path to the launch file, without mentioning any package.
+
+```bash
+roslaunch ∼/ros/src/demo/example.launch
+```
+
+
+An important fact about ```roslaunch``` is that all of the nodes in a launch file are started at roughly the same time. As a result, we cannot be sure about the order in which the nodes will initialize themselves. Well-written ROS nodes don’t care about the order in which they and their siblings start up.
+
+
+## Create Launch file <a name="createlaunch"></name>
+### Where to Place Launch Files
+Each launch file should be associated with a particular package. The usual naming scheme is to give launch files names ending with ```.launch```.
+
+The simplest place to store launch files is in the package directory. When looking for launch files, ```roslaunch``` will also search subdirecotries of each package directory. Some packages utilize this feature by organizing launch files into a subdirecotry of their own, usually called ```launch```
+
+### Basic Ingredients
+#### Root Element
+
+For ROS launch files, the root element is defined by
+
+```XML
+<launch>
+  ...
+</launch>
+```
+
+#### Nodes
+Each of the node elements names a single node to launch
+
+```XML
+<node
+  pkg="package-name"
+  type="executable-name"
+  name="node=name"
+/>   
+```  
+
+The  ```name``` attribute assigns a name to the node and overrides any name that the node would normally assign to itself in its call to ```ros::init```
+
+To use an anonymous name from within a launch file, use an ```anon``` substitution. Note: multiple uses of the same base name will generate the same anonymous name.
+
+```
+name="$(anon base_name)"
+```
+
+
+#### Find Node Log File
+By default, standard output from launched nodes is redirected to a log file and does not appear on the console. The name of the log file is
+```
+~/.ros/log/run_id/node_name-number-stdout.log
+```
+
+```
+turtlesim-1-stdout.log
+telep_key-3-stdout.log
+```
+To override this behavior for a single node, use the ```output``` attribute in its node element
+
+```
+output="screen"
+```
+
+We can also force roslaunch to display output from all of its nodes using the ```--screen``` command-line option
+
+```
+roslaunch --screen package-name launch-file-name
+```
+
+#### Request Respawning
+After starting all the requested nodes, ```roslaunch``` monitors each node, keeping track of which ones remain active. For each node, we can asl ```roslaunch``` to restart it when it terminates by using a ```respawn``` attribute:
+
+```
+respawn="true"
+```
+
+#### Require Nodes
+An alternative to ```respawn``` is to declare that a node is required:  
+
+```
+required="true"
+```
+
+When a required node terminates, ```roslaunch``` responds by terminating all of the other active nodes and exiting itself.
+
+#### Launch Nodes in Their Own Windows
+One potential drawback to using ```roslaunch``` is that all of the nodes share the same terminal. For nodes that do rely on console input, it may be preferable to retain the separate terminals.
+
+```
+launch-prefix="command-prefix"
+```
+
+```roslaunch``` will insert the given prefix at the start of the command line it constructs internally to execute the given node
+
+In the ```example.launch```, we use ```launch-prefix="xterm -e"```. this node element is roughly equivalnent to this command:
+```
+xterm -e rosrun turtlesim turtle_teleop_key
+```
+
+The ```xterm``` command starts a simple terminal window. The ```-e``` argument tells xterm to execute the remainder of its command line
+
+
+#### Launch Nodes Inside A Namespace
+
+The usual way to set the default namespace for a node—a process often called pushing down into a namespace—is to use a launch file, and assign the ```ns``` attribute in its node element
+
+```
+ns="namespace"
+```
+
+```roslaunc``` requires the node names in the launch files to be base names-relative names without any namespaces
+
+```xml
+<launch>
+  <node
+    name="turtlesim_node"
+    pkg="turtlesim"
+    type="turtlesim_node"
+    ns="sim1"
+  />
+  <node
+    pkg="turtlesim"
+    type="turtle_teleop_key"
+    name="teleop_key "
+    required="true"
+    launch−prefix="xterm −e"
+    ns="sim1"
+  />
+  <node
+    name="turtlesim_node"
+    pkg="turtlesim"
+    type="turtlesim_node"
+    ns="sim2"
+  />
+  <node
+    pkg="demo"
+    type="pubvel"
+    name="velocity_publisher"
+    ns="sim2"
+  />
+</launch>
+```
+
+```doublesim.launch``` starts two independent turtlesim simulations. One simulation has a turtle moved by randomly-generated velocity commands; the other is teleoperated.
+
+
+### Remap Names <a name="remapname"></a>
+
+#### Create Remappings
+* remap a name when starting a node from the command line
+
+```
+original-name:=new-name
+```
+
+```bash
+rosrun turtlesim turtlesim_node tutle1/pose:=tim
+```
+* remap  names within a launch file
+
+```XML
+<remap from="original-name" to="new-name" />
+```
+
+If it appears at the top level, as a child of the launch element, this remapping will apply to all subsequent nodes. These remap elements can also appear as children of a node element, like this:
+```xml
+<node node-attributes >
+  <remap from="original-name" to="new-name" />
+  ...
+</node>
+```
+
+
+
+Consider a scenario in which we want to use turtle_teleop_key to drive a turtlesim turtle, but with the meanings of arrow keys reversed.
+
+
+
+```c++
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+
+ros::Publisher *pubPtr;
+void commandVelocityReceived(
+  const geometry_msgs::Twist& msgIn
+){
+  geometry_msgs::Twist msgOut;
+  msgOut.linear.x = -msgIn.linear.x;
+  msgOut.angualr.z = -msgIn.angualr.z;
+  pubPtr->publish(msgOut);
+}
+
+
+int main(int argc, char **argv){
+  ros::init(argc, argc, "reverse_velocity");
+  ros::NodeHandle nh;
+
+  pubPtr = new ros::Publisher(
+    node.advertise<geometry_msgs::Twist>(
+      "turtle1/cmd_vel_reversed",
+      1000));
+
+  ros::Subscriber sub = nh.subscribe(
+    "turtle1/cmd_vel", 1000,
+    &commandVelocityReceived);
+  ros::spin();
+
+  delete pubPtr;
+}
+
+```
+reverse_cmd_vel.cpp
+
+
+
+```XML
+<launch>
+  <node
+    pkg="turtlesim"
+    type="turtlesim_node"
+    name="turtlesim"
+  >
+    <remap
+      from="turtle1/cmd_vel"
+      to="turtle1/cmd_vel_reversed"
+    />
+  </node>  
+  <node
+    pkg="turtlesim"
+    type="turtle_teleop_key"
+    name="teleop_key "
+    launch−prefix="xterm −e"
+  />
+  <node
+    pkg="demo"
+    type="reverse_cmd_vel"
+    name="reverse_velocity"
+  />
+</launch>
+```
+reverse.launch
+
+
+### Include Other Files

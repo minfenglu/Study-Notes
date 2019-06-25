@@ -98,7 +98,7 @@ Change ```Perspetive``` to ```Top``` and two grounds are aligned like this:
 
 * Create RightWall
   * Copy LeftWall
-  * Set Transform -> Location to -1312.5, 625, 205
+  * Set Transform -> Location to -1312.5, 5625, 205
 
 
 * Create BottomWall
