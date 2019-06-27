@@ -29,6 +29,15 @@
   * [Private Names](#privatename)
   * [Anonymous Names](#anonymousname)
 - [Launch Files](#launchfile)
+  * [Use Launch Files](#uselaunch)
+  * [Create Launch Files](#createlaunch)
+    + [Where to Place Launch Files](#launchplace)
+    + [Basic Ingredients](#basicingredients)
+    + [Remappings](#remappings)
+    + [Include Other Files](#includetoherlaunch)
+    + [Launch Arguments](#launcharguments)
+    + [Create Groups](#creategroups)
+- [Parameters](#paramters)
 
 # ROS Basics <a name="rosbasics"/>
 
@@ -694,12 +703,12 @@ An important fact about ```roslaunch``` is that all of the nodes in a launch fil
 
 
 ## Create Launch file <a name="createlaunch"></name>
-### Where to Place Launch Files
+### Where to Place Launch Files <a name="launchplace"></a>
 Each launch file should be associated with a particular package. The usual naming scheme is to give launch files names ending with ```.launch```.
 
 The simplest place to store launch files is in the package directory. When looking for launch files, ```roslaunch``` will also search subdirecotries of each package directory. Some packages utilize this feature by organizing launch files into a subdirecotry of their own, usually called ```launch```
 
-### Basic Ingredients
+### Basic Ingredients <a name="basicingredients"></a>
 #### Root Element
 
 For ROS launch files, the root element is defined by
@@ -825,6 +834,7 @@ ns="namespace"
   />
 </launch>
 ```
+doublesim.launch <a name="doublesimlaunch"></>
 
 ```doublesim.launch``` starts two independent turtlesim simulations. One simulation has a turtle moved by randomly-generated velocity commands; the other is teleoperated.
 
@@ -926,4 +936,226 @@ reverse_cmd_vel.cpp
 reverse.launch
 
 
-### Include Other Files
+### Include Other Files <a name="includetoherlaunch"> </a>
+To include contents of another launch file, including all of its nodes and parameters:
+```
+<include file="path-to-launch-file"/>
+```
+
+The file attribute expects the full path to the file we want to include. Most ```include``` elements use a find substitution to search for a package, instead of explicitly naming a direcotry:
+
+```
+<include file="$(find package-name)/launch-file-name"/>
+```
+
+The ```find``` argument is expanded via a string substitution to the path to the given package.
+
+The ```include``` element also supports the ```ns``` attribute for pushing its contents into a namespace
+```
+<include file=". . . " ns="namespace" />
+```
+
+### Launch Arguments
+To make launch files configurable, ```roslaunch``` supports launch arguments.
+
+The example launch file uses ```use_sim3``` as argument to determine whether to start three copies of turtlesim or two. See [doublesim.launch](#doublesimlaunch)
+
+
+```xml
+<launch>
+  <include
+    file="$(find demo)/doublesim.launch"
+  />
+  <arg
+    name="use_sim3"
+    default="0"
+  />
+
+  <group ns="sim3" if="$(arg use_sim3)" >
+    <node
+      name="turtlesim_node"
+      pkg="turtlesim"
+      type="turtlesim_node"
+    />
+    <node
+      pkg="turtlesim"
+      type="turtle_teleop_key"
+      name="teleop_key "
+      required="true"
+      launch−prefix="xterm −e"
+    />
+  </group>
+</launch>
+```
+triplesim.launch
+
+
+Note: arguments make sense only within launch files; their values are not directly available to nodes.
+
+#### Declare Arguments
+```
+<arg name="arg-name" />
+```
+
+#### Assign Argument Values
+```
+roslaunch package-name launch0file-name arg-name:=arg-vale
+```
+
+Alternatively, we can provide a vlue as part of the arg declaration.
+```
+<arg name="arg-name" default="arg-value" />
+<arg name="arg-name" value="arg-value" />
+```
+
+
+Note: A command line argument can override a default, but not a value.
+
+
+#### Access Argument Values
+```
+$(arg arg-name)
+```
+
+```roslaunch``` will replace it with the value of the given argument
+
+#### Send Argument Values to Included Launch Files
+
+```
+<include file="path-to-launch-file">
+  <arg name="arg-name" value="arg-value"/>
+  ...
+</include>
+```
+
+
+One common scenario is that both launch files—the included one and the including one—have some arguments in common. In such cases, we might want to pass those values along unchanged. An element like this, using the same argument name in both places, does this:
+
+```
+<arg name="arg-name" value="$(arg arg-name)" />
+```
+
+The first appearance of the argument’s name refers to that argument in the included launch file. The second appearance of the name refers to the argument in the including launch file.
+
+#### Create Groups <a name="creategroups"></a>
+
+```group``` provides a convenient way to organize nodes in a large launch file. The ```group``` element can serve two purposes:
+* push several nodes into the same namespace
+
+```
+<group ns="namespace">
+  ...
+</group>
+```
+
+* conditionally enable or disable nodes
+
+```
+<group if="0-or-1">
+  ...
+</group>
+```
+If the value of the if attribute is 1, then the enclosed elements are included normally. If this attribute has value 0, then the enclosed elements are ignored. The unless attribute works similarly, but with the meanings reversed:
+
+```
+<group unless="1-ot-0">
+  ...
+</group>
+```
+
+# Parameters <a name="parameters"
+
+A centralized parameter server keeps track of a collection of values, like integers, floating point numbers, strings, or other data, each of which is identified by a short string name.
+
+Because parameters must be actively queried by the nodes that are interested in their values, they are most suitable for configuration information that will not change (much) over time.
+
+## Access Parameters from Command Line  
+
+```bash
+rosparam list
+```
+
+The output will show a list of strings and each of these strings is a name (a global graph resource name) that the parameter server has associated with some values.
+
+## Query Parameters
+```bash
+rosparam get paramter_name
+```
+It is also possible to retrive values of every parameter in a namespace
+
+```bash
+rosparam get namespace
+```
+
+## Set Parameter
+```bash
+rosparam set parameter_name parameter_value
+```
+
+## Create and Load Paramter Files
+To store all of the parameters from a namespace, in YAML format, to a file, use ```rosparam dump```:
+
+```bash
+rosparam dump filename namespace
+```
+
+To read parameters from a file and adds them to the
+parameter server:
+
+```bash
+rosparam load filename namespace
+```
+
+Note: For both of these commands, the namespace argument is optional, and defaults to the global namespace (/).
+
+
+## Example
+If we start ```roscore``` and ```turtlesim_node``` and run ```rosparam list```, we will get an output like this:
+
+```
+/background_b
+/background_g
+/background_r
+/rosdistro /roslaunch/uris/host_donatello__59636 /rosversion
+/run_id
+```
+
+To set the background color to bright yellow
+
+```
+rosparam set /background_r 255
+rosparam set /background_g 255
+rosparam set /background_b 0
+rosservice call /clear
+```
+
+Updated parameter values are not automatically “pushed” to nodes. Instead, nodes that care about changes to some or all of their parameters must explicitly ask the parameter server for those values.
+
+ if we expect to change the values of parameters used by an active node, we must be aware of how (or if) that node requeries its parameters.  
+
+## Access Paramters from C++
+The C++ interface to ROS parameters is:
+
+```c++
+void ros::param::set(parameter_name, input_value);
+bool ros::param::get(parameter_name, output_value);
+```
+
+```c++
+#include <ros/ros.h>
+#include <std_srvs/Empty.h>
+int main(int argc , char ∗∗argv) {
+  ros::init(argc, argv, "set_bg_color");
+  ros::NodeHandle nh;
+
+  ros::service::waitForService("clear");
+
+  ros::param::set("background_r", 255);
+  ros::param::set("background_g", 255);
+  ros::param::set("background_b", 0);
+
+  ros::ServiceClient clearClient = nh.serviceClient<std_srvs::Empty>("/clear");
+  std_srvs::Empty srv;
+  clearClient.call(srv);
+```
+set_bg_color.cpp
