@@ -1142,9 +1142,11 @@ bool ros::param::get(parameter_name, output_value);
 ```
 
 ```c++
+// This program waits for a turtlesim to start up, and
+// changes its background color.
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
-int main(int argc , char ∗∗argv) {
+int main(int argc , char** argv) {
   ros::init(argc, argv, "set_bg_color");
   ros::NodeHandle nh;
 
@@ -1159,3 +1161,108 @@ int main(int argc , char ∗∗argv) {
   clearClient.call(srv);
 ```
 set_bg_color.cpp
+
+
+
+```c++
+// This program publishes random velocity commands, using
+// a maximum linear velocity read from a parameter.
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include <stdlib .h>
+int main(int argc , char** argv) {
+  ros::init(argc, argc, "publish_velocity");
+  ros::NodeHandle nh;
+  ros::Publisher pub = nh.advertise<geometry_msgs::Twist>(
+    "turtle1/cmd_vel", 1000);
+  srand(time(0));
+
+  // Get the maximum velocity parameter.
+  const std::string PARAM_NAME = "~max_vel";
+  double maxVel;
+  bool ok = ros::param::get(PARAM_NAME, maxVel);
+
+  if (!ok){
+    ROS_FATAL_STREAM("Could not get parameter " << PARAM_NAME); exit(1);
+  }
+
+  ros::Rate rate(2);
+  while(ros::ok()){
+    // Create and send a random velocity command.
+    geometry_msgs::Twist msg ;
+    msg.linear.x = maxVel * double(rand()) / double(RAND_MAX); msg.angular.z = 2 * double(rand()) / double(RAND_MAX) − 1;
+    pub.publish(msg);
+
+    rate.sleep();
+  }
+
+## Set Parameters in Launch Files
+
+To ask ```roslaunch``` to set a parameter value, use a ```param``` element
+
+```
+<param name="param-name" value="param-value" />
+```
+
+```
+<group ns="duck_colors">
+  <param name="huey" value="red" />
+  <param name="dewey" value="blue" />
+  <param name="louie" value="green" />
+  <param name="webby" value="pink" />
+</group>
+```
+
+To set private paramters:
+
+```
+<node ...>
+<param name="param-name" value="param-value" />
+  ...
+</node>
+```
+
+
+```
+<node
+  pkg="agitr"
+  type="pubvel_with_max"
+  name="publish_velocity" />
+  <param name="max_vel" value="3" />
+</node>
+```
+
+## Read Parameters from A File
+```
+<rosparam command="load" file="path-to-param-file" />
+```
+The parameter file listed here is usually one created by ```rosparam``` dump. It is typical to use a find substitution to specify the file name relative to a package directory
+
+```
+<rosparam
+  command="load"
+  file="$(find package-name)/param-file"
+/>
+```
+
+```xml
+<launch>
+  <node
+    pkg="turtlesim"
+    type="turtlesim_node"
+    name="turtlesim"
+  />
+  <node
+    pkg="agitr"
+    type="pubvel_with_max"
+    name="publish_velocity"
+  >
+    <param name="max_vel" value="3" />
+  </node>
+  <node
+    pkg="agitr"
+    type="set_bg_color"
+    name="set_bg_color"
+  />
+</launch>
+```
