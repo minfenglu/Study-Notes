@@ -1,4 +1,4 @@
-# Table of Contents
+# Table of Contents <a name="top"></a>
 - [ROS Basics](#rosbasics)
   * [Packages](#packages)
   * [Master](#master)
@@ -38,7 +38,10 @@
     + [Launch Arguments](#launcharguments)
     + [Create Groups](#creategroups)
 - [Parameters](#paramters)
-
+- [Services](#services)
+  * [Find and Call Services](#findandcallservice)
+  * [Client Program](#serviceclient)
+  * [Server Program](#serviceserver)
 # ROS Basics <a name="rosbasics"/>
 
 ## Packages <a name="packages"></a>
@@ -419,7 +422,7 @@ int main(int argc, char **argv){
     ros::spin();
 }
 ```
-
+[Return to Top](#top)
 
 # Log Messages <a name="logmessage"></a>
 
@@ -572,6 +575,9 @@ log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->setLevel(
 );  
 ros::console::notifyLoggerLevelsChanged();  
 ```
+
+[Return to Top](#top)
+
 
 # Graph Resource Name <a name="grname"></a>
 
@@ -1063,6 +1069,9 @@ If the value of the if attribute is 1, then the enclosed elements are included n
 </group>
 ```
 
+[Return to Top](#top)
+
+
 # Parameters <a name="parameters"
 
 A centralized parameter server keeps track of a collection of values, like integers, floating point numbers, strings, or other data, each of which is identified by a short string name.
@@ -1266,3 +1275,192 @@ The parameter file listed here is usually one created by ```rosparam``` dump. It
   />
 </launch>
 ```
+
+[Return to Top](#top)
+
+# Services <a name="services"></a>
+Service calls differ from messages in two ways:
+
+* Service calls are **bi-directional**. One node sneds information to another node and waiting for a response. Information flows in both directions. However, when a message is published, there is no concept of a response and not even any guarantee that anyone is subscribing to thos messages.
+
+* Service calls implement **one-to-one** communication. Each service call is initiated by one node and the response goes back to the same node. However, each message is associated with a topic that might have many publishers and many subscribers
+
+The idea is that a **client** node sends data called a **request** to a **server** node and waits for a reply. The **server**, having received this request, takes some action and sends some data called a **response** back to the client.
+
+The specific content of the request and response data is determined by the **service data type**, which is analogous to the message types that determine the content of messages. The difference is that a **service data type** is divided into two parts, representing the request and the respsonse.
+
+## Find and Call Services from Command Line <a name="findandcallservice"></a>
+
+### List All Services
+
+```bash
+rosservice list
+```
+
+Many ROS services in general can be divided into two basic types:
+* Some services, like ```get_loggers``` and ```set_logger_level``` are used to get information from or pass information to specific nodes. These kinds of services usually use their node’s name as a namespace to prevent name collisions, and to allow their nodes to offer them via private names like ```∼get_loggers``` or ```∼set_logger_level```.
+
+* Other services represent more general capabilities that are not conceptually tied to any particular node. These kinds of services typically have names that describe their function, but that do not mention any specific node.
+
+### List Services by Node
+
+```bash
+rosnode info node-name
+```
+
+### Find the Node Offering a Service
+```bash
+rosservice node service-name
+```
+
+### Find Data Type of a Service
+```bash
+rosservice info service-name
+```
+
+For example, the command
+```bash
+rosservice info /spawn
+```
+
+returns the following output:
+```bash
+Node: /turtlesim
+URI: rosrpc://donatello:47441
+Type: turtlesim/Spawn
+Args: x y theta name
+```
+
+The data type of the ```/spawn``` service is ```turtlesim/Spawn```. A service data type has two parts, one naming the package that owns the type (turtlesim), and one naming the type itself (Spawn)
+
+### Inspect Service Data Types
+```bash
+rossrv show service-data-type-name
+```
+
+For example,
+```bash
+rossrv show turtlesim/Spawn
+```
+
+produces the following output
+
+```bash
+float32 x
+float32 y
+float32 theta
+string name
+---
+string name
+```
+
+The data before the dashes are the elements of the request and everything after is the response (information that the server sends back from the client when the server has finished acting on the request)
+
+Note: Both the response and request can be empty.
+
+### Call Services from Command Line
+
+```bash
+rosservice call service-name request-content
+```
+
+```  bash
+rosservice call /spawn 3 3 0 Turtle1
+```
+This command creates a new turtle named Turtle1 at position (x, y) = (3, 3), facing ange = 0 within the existing simulator
+
+
+## Client Program <a name="serviceclient"></a>
+
+### Declare Request and Response Types
+Every service data has an associated C++ header file that we must include
+```
+#include <package_name/type_name.h>
+```
+
+### Create Client Object
+After initializing itself as a node (by calling ros::init and creating a NodeHandle object), the program needs to create an object of type ros::ServiceClient to carry out the service call.
+
+The declaration is as follows:
+
+```c++
+ros::ServiceClient client = node_handle.serviceClient<service_type><service_name>
+```
+
+### Create Request and Response Object
+We need to create a request object to contain the data to be sent to the server. Response object information should come from the server so we should not attempt to fill in its data members.
+
+Each of these classes has data members matching the fields of the service type.
+```c++
+package_name::service_type::Request
+package_name::service_type::Response
+```
+
+### Call the Service
+```c++
+bool success = service_client.call(request, response)
+```
+
+This method does the actual work of locating the server node, transmitting the request data, waiting for a response and storing the response data.
+
+After the service call successfully completes, we can access the response data from the ```Request``` object that we passed to ```call```.
+
+### Declare Dependency
+To get ```catkin_make``` to correctly compile a client program, we must declare a dependency on the package that owns the service type. So we need to modify the CMakeLists.txt and the package.xml manifest.
+
+```
+find_package(catkin REQUIRED COMPONENTS roscpp turtlesim)
+```
+
+```XML
+<build_depend>turtlesim</build_depend>
+<run_depend>turtlesim</run_depend>
+```
+
+
+### Complete Program
+```c++
+// This program spawns a new turtlesim turtle by calling
+// the appropriate service.
+#include <ros/ros.h>
+// The srv class for the service.
+#include <turtlesim/Spawn.h>
+
+int main(int argc, char **argv){
+  ros::init(argc, argv, "spawn_turtle");
+  ros::NodeHandle nh;
+
+  // Create client object
+  // need to know data type of the service
+  // and its name
+  ros::ServiceClient spawnCLient
+    = nh.serviceClient<turtlesim::Spawn>("spawn");
+
+  turtlesim::Spawn::Request req;
+  turtlesim::Spawn::Response resp;
+
+  req.x = 2;
+  req.y = 3;
+  req.theta = M_PI / 2;
+  req.name = "Leo";
+
+  // Call the service
+  // This won't return until the service is complete
+  bool success = spwnClient.call(req, resp);
+
+  if (success){
+    ROS_INFO_STREAM("Spawned a turtule named" << resp.name);
+  }
+  else{
+    ROS_ERROR_STREAM("Failed to spawn");
+  }
+}
+```
+
+spawn_turtle.cpp
+
+
+
+## Server Program <a name="serviceserver"></a>
+### Write a Service Callback
+Each service that our nodes offer must be associated with a callback function.
