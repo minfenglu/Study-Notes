@@ -1464,3 +1464,93 @@ spawn_turtle.cpp
 ## Server Program <a name="serviceserver"></a>
 ### Write a Service Callback
 Each service that our nodes offer must be associated with a callback function.
+
+ROS executes the callback function once for each service call that the node receives. The ```Request``` parameter contains the data sent from the client. The callback'job is to fill in the data members of the ```Response``` object. The callback function return true to indicate success or false to indicate failure.
+
+### Create a Service Object
+We have to advertise the service to associate the callback function with a service name and to offer the service to other nodes.
+
+```c++
+ros::ServiceServer server = node_handle.advertiseService(
+  service_name,
+  pointer_to_callback_function
+);
+```
+
+### Give ROS Control
+ROS will not execute any callback functions until we use ros::spin() or ros::spinOnce().
+
+```c++
+bool function_name(
+  package_name::service_type::Request &request,
+  package_name::service_type::Response &resp
+){
+  ...
+}
+
+
+
+```c++
+#include <ros/ros.h>
+#include <std_srvs/Empty.h>
+#include <geometry_msgs/Twist.h>
+
+bool forward = true;
+bool toggleForward(
+  std_srvs::Empty::Request &req,
+  std_srvs::Empty::Response &resp
+){
+  forward = !forward;
+  ROS_INFO_STREAM("Now sending " << (forward ? "forward" : "rotate") << " commands");
+  return true;
+}
+
+int main(int argc, char **argv){
+  ros::init(argc, argv, "pubvel_toggle");
+  ros::NodeHandle nh;
+
+  // Register the service with the master
+  ros::ServiceServer server = nh.advertiseService("togge_forward", &toggleForward);
+
+  // Publish commands using the latest value of forward
+  ros::Publisher pub = nh.advertise<geometry_msgs::Twist>("turtle1/cmd_vel", 1000);
+
+  ros::Rate rate(2);
+  while (ros::ok()){
+    geometry_msgs::Twist msg;
+    msg.linear.x = forward? 1.0 : 0.0;
+    msg.angular.z = forward ? 0.0 : 1.0;
+    pub.publish(msg);
+    ros::spinOnce();
+    rate.sleep();
+  }
+}
+```
+pubvel_toggle.cpp
+
+
+
+# Record and Replay Messages <a name="recordreplay"></a>
+
+## Record and Replay Bag Files
+```Bag File``` refers to a specially formatted file that stores timestamped ROS messages. The ```rosbag``` command can be used both to record and replau bag files.
+
+### Record Bag Files
+```
+rosbag record -O filename.bag topic-names
+```
+
+If a name is not giving, ```rosbag``` will choose one based on the current date and time.
+
+* ```rosbag record -a``` will record messages on every topic that is currently being published
+
+* ```rosbag record -j``` will enable compression in the bag file.
+
+### Replay Bag Files
+```rosbag play filename.bag``` will replay the messages stored in the bag file in the same order and with the same time intervals as when they were originally published.
+
+```rosbag info filename.bag``` provides a number of interesting snippets of information, including duration, message count, and tpoic lists.
+
+
+# Bags in Launch Files
+ROS provides executables names ```record``` and ```play``` that are members of the ```rosbag``` package.
