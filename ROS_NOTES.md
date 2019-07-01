@@ -1554,3 +1554,23 @@ If a name is not giving, ```rosbag``` will choose one based on the current date 
 
 # Bags in Launch Files
 ROS provides executables names ```record``` and ```play``` that are members of the ```rosbag``` package.
+
+
+A record node might look like this
+```xml
+<node
+  pkg="rosbag"
+  name="record"
+  type="record"
+  args="-O filename.bag topic-names"
+/>
+```
+
+A play node might look like this
+```xml
+<node
+  pgk="rosbag"
+  name="play"
+  type="play"
+  args="filename.bag"
+```
