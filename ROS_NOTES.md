@@ -42,6 +42,7 @@
   * [Find and Call Services](#findandcallservice)
   * [Client Program](#serviceclient)
   * [Server Program](#serviceserver)
+- [Record and Replay Messages](#recordreplay)  
 # ROS Basics <a name="rosbasics"/>
 
 ## Packages <a name="packages"></a>
@@ -1528,6 +1529,7 @@ int main(int argc, char **argv){
 ```
 pubvel_toggle.cpp
 
+[Return to Top](#top)
 
 
 # Record and Replay Messages <a name="recordreplay"></a>
@@ -1574,3 +1576,5 @@ A play node might look like this
   type="play"
   args="filename.bag"
 ```
+
+[Return to Top](#top)
